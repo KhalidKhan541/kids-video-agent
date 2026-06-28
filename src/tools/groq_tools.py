@@ -45,12 +45,13 @@ def _parse_json(text: str) -> dict[str, Any]:
     return json.loads(cleaned)
 
 
-def generate_script(topic: str, language: str = "en") -> dict[str, Any]:
+def generate_script(topic: str, language: str = "en", num_scenes: int = 40) -> dict[str, Any]:
     """Generate a kids video script with scenes, narration, and image prompts.
 
     Args:
         topic: The video topic (e.g. "animal sounds", "learn colors").
         language: ISO 639-1 language code. Defaults to "en".
+        num_scenes: Number of scenes to generate. Defaults to 40.
 
     Returns:
         Structured dict with topic, language, scenes, and narration_text.
@@ -69,7 +70,7 @@ Return ONLY valid JSON (no markdown, no commentary) with this exact structure:
 {{
   "topic": "{topic}",
   "language": "{language}",
-  "num_scenes": 8,
+  "num_scenes": {num_scenes},
   "scenes": [
     {{
       "scene_id": 1,
@@ -82,11 +83,14 @@ Return ONLY valid JSON (no markdown, no commentary) with this exact structure:
 }}
 
 Rules:
-- Create exactly 8 scenes
+- Create exactly {num_scenes} scenes
+- Each scene should flow naturally to the next with proper storytelling
 - Narration must be simple, short sentences suitable for children ages 2-6
 - Image prompts must be descriptive and end with "Pixar style 3D cartoon, bright vivid colors, child-friendly, no text, clean background"
 - All text must be in {lang_label}
-- Keep each narration line under 15 words"""
+- Keep each narration line under 15 words
+- Create a complete story arc with beginning, middle, and end
+- Use repetition and rhythm to make it engaging for toddlers"""
 
     try:
         raw = _chat_completion(prompt)

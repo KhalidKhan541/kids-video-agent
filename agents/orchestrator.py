@@ -64,7 +64,7 @@ def run_pipeline(
     t1 = time.time()
     try:
         from src.tools.groq_tools import generate_script
-        script_result = generate_script(topic, language=lang)
+        script_result = generate_script(topic, language=lang, num_scenes=num_scenes)
         results["agents"]["ScriptWriter"] = script_result
         scenes = script_result.get("scenes", [])
         _print(f"  [OK] {len(scenes)} scenes generated in {time.time() - t1:.1f}s")
