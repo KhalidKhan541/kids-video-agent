@@ -1,0 +1,77 @@
+{
+  "topic": "animal sounds",
+  "scenes": [
+    {
+      "scene_number": 1,
+      "image_filename": "scene_01.png",
+      "narration": "What does the cow say? Moo! Moo! The cow says moo!",
+      "duration": 8
+    },
+    {
+      "scene_number": 2,
+      "image_filename": "scene_02.png",
+      "narration": "Listen! A happy dog! Woof woof! Dogs love to bark!",
+      "duration": 8
+    },
+    {
+      "scene_number": 3,
+      "image_filename": "scene_03.png",
+      "narration": "Shh! A soft kitty! Meow! Cats say meow when they talk!",
+      "duration": 8
+    },
+    {
+      "scene_number": 4,
+      "image_filename": "scene_04.png",
+      "narration": "Splash! A duck in the water! Quack quack! Ducks love to swim!",
+      "duration": 8
+    },
+    {
+      "scene_number": 5,
+      "image_filename": "scene_05.png",
+      "narration": "Look at the fluffy sheep! Baa baa! Sheep have soft wool!",
+      "duration": 8
+    },
+    {
+      "scene_number": 6,
+      "image_filename": "scene_06.png",
+      "narration": "A little pig in the mud! Oink oink! Pigs love to play!",
+      "duration": 8
+    },
+    {
+      "scene_number": 7,
+      "image_filename": "scene_07.png",
+      "narration": "Cluck cluck! A chicken is laying eggs! Chickens make yummy food!",
+      "duration": 8
+    },
+    {
+      "scene_number": 8,
+      "image_filename": "scene_08.png",
+      "narration": "Giddy up! A fast horse! Neigh! Horses can run really fast!",
+      "duration": 8
+    },
+    {
+      "scene_number": 9,
+      "image_filename": "scene_09.png",
+      "narration": "Roar! The lion is the king of the jungle! Lions are so brave!",
+      "duration": 8
+    },
+    {
+      "scene_number": 10,
+      "image_filename": "scene_10.png",
+      "narration": "Trumpet! A big elephant with a long trunk! Elephants never forget!",
+      "duration": 8
+    },
+    {
+      "scene_number": 11,
+      "image_filename": "scene_11.png",
+      "narration": "Ooh ooh ah ah! A playful monkey in the trees! Monkeys love bananas!",
+      "duration": 8
+    },
+    {
+      "scene_number": 12,
+      "image_filename": "scene_12.png",
+      "narration": "All the animals together! Moo, woof, meow, quack! Can you make all the sounds?",
+      "duration": 8
+    }
+  ]
+}

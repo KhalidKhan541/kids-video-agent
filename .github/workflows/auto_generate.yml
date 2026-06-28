@@ -1,0 +1,97 @@
+name: Auto Generate Kids Videos
+
+on:
+  schedule:
+    - cron: '0 10 * * 1,3,5'  # Every Mon/Wed/Fri at 10:00 UTC
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Video topic (e.g., learn colors, animal sounds)'
+        required: true
+        default: 'learn colors'
+      language:
+        description: 'Language code'
+        required: false
+        default: 'en'
+      upload:
+        description: 'Upload to YouTube'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  PYTHON_VERSION: '3.11'
+  OLLAMA_MODEL: 'qwen2.5:1.5b'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama pull ${{ env.OLLAMA_MODEL }}
+
+      - name: Start Ollama service
+        run: |
+          ollama serve &
+          sleep 5
+
+      - name: Determine topic
+        id: topic
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "topic=${{ github.event.inputs.topic }}" >> $GITHUB_OUTPUT
+            echo "lang=${{ github.event.inputs.language }}" >> $GITHUB_OUTPUT
+            echo "upload=${{ github.event.inputs.upload }}" >> $GITHUB_OUTPUT
+          else
+            # Random topic from a curated list for scheduled runs
+            TOPICS=("learn colors" "animal sounds" "counting 1-10" "the solar system" "good manners" "shapes" "fruits" "vehicles" "weather" "feelings")
+            IDX=$((RANDOM % ${#TOPICS[@]}))
+            echo "topic=${TOPICS[$IDX]}" >> $GITHUB_OUTPUT
+            echo "lang=en" >> $GITHUB_OUTPUT
+            echo "upload=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate video
+        run: |
+          python -m src.main create --topic "${{ steps.topic.outputs.topic }}" --language "${{ steps.topic.outputs.lang }}"
+
+      - name: Upload video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kids-video-${{ github.run_number }}
+          path: output/videos/*.mp4
+          retention-days: 30
+
+      - name: Upload thumbnail artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kids-thumbnail-${{ github.run_number }}
+          path: output/thumbnails/*.jpg
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          echo "## Video Generated" >> $GITHUB_STEP_SUMMARY
+          echo "**Topic:** ${{ steps.topic.outputs.topic }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Language:** ${{ steps.topic.outputs.lang }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY

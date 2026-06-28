@@ -1,0 +1,77 @@
+{
+  "topic": "learn colors",
+  "scenes": [
+    {
+      "scene_number": 1,
+      "image_filename": "scene_01.png",
+      "narration": "Look! A bright red apple! Red is such a beautiful color!",
+      "duration": 8
+    },
+    {
+      "scene_number": 2,
+      "image_filename": "scene_02.png",
+      "narration": "Wow! A deep blue ocean! Blue is the color of the sky!",
+      "duration": 8
+    },
+    {
+      "scene_number": 3,
+      "image_filename": "scene_03.png",
+      "narration": "See the green grass? Green is the color of nature and trees!",
+      "duration": 8
+    },
+    {
+      "scene_number": 4,
+      "image_filename": "scene_04.png",
+      "narration": "Look up! The yellow sun is shining bright! Yellow is warm and happy!",
+      "duration": 8
+    },
+    {
+      "scene_number": 5,
+      "image_filename": "scene_05.png",
+      "narration": "Yum! A juicy orange fruit! Orange is a yummy color!",
+      "duration": 8
+    },
+    {
+      "scene_number": 6,
+      "image_filename": "scene_06.png",
+      "narration": "Ooh! Beautiful purple grapes! Purple is a magical color!",
+      "duration": 8
+    },
+    {
+      "scene_number": 7,
+      "image_filename": "scene_07.png",
+      "narration": "Aww! Lovely pink flowers! Pink is soft and sweet!",
+      "duration": 8
+    },
+    {
+      "scene_number": 8,
+      "image_filename": "scene_08.png",
+      "narration": "This tall brown tree is so strong! Brown is the color of earth and wood!",
+      "duration": 8
+    },
+    {
+      "scene_number": 9,
+      "image_filename": "scene_09.png",
+      "narration": "Look at the fluffy white clouds! White is clean and pure!",
+      "duration": 8
+    },
+    {
+      "scene_number": 10,
+      "image_filename": "scene_10.png",
+      "narration": "The black night sky is full of stars! Black is the color of darkness!",
+      "duration": 8
+    },
+    {
+      "scene_number": 11,
+      "image_filename": "scene_11.png",
+      "narration": "A rainbow has all the colors! Can you name them all?",
+      "duration": 8
+    },
+    {
+      "scene_number": 12,
+      "image_filename": "scene_12.png",
+      "narration": "Red, blue, green, yellow, and more! Colors are everywhere! Which is your favorite?",
+      "duration": 8
+    }
+  ]
+}

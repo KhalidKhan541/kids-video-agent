@@ -1,0 +1,190 @@
+{
+  "name": "🎬 Kids Video Pipeline - Full Automation",
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "▶️ Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "parameters": {}
+    },
+    {
+      "id": "topic-input",
+      "name": "📝 Enter Topic",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "topic",
+              "value": "={{ $json.topic || 'animal dance party' }}"
+            },
+            {
+              "name": "numScenes",
+              "value": "5"
+            },
+            {
+              "name": "promptsFile",
+              "value": "={{ 'C:\\\\Users\\\\khali\\\\kids-video-agent\\\\output\\\\prompts\\\\prompts_' + ($json.topic || 'animal_dance_party').replace(' ', '_') + '.txt' }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "generate-prompts",
+      "name": "🤖 Generate Prompts (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:11434/api/generate",
+        "authentication": "none",
+        "sendBody": true,
+        "jsonBody": {
+          "model": "qwen2.5:1.5b",
+          "prompt": "={{ 'Generate ' + $json.numScenes + ' detailed image prompts for Bing Image Creator about \"' + $json.topic + '\". Each prompt should describe a cute 3D cartoon scene for kids, Pixar style, bright colors. Return ONLY a numbered list, one per line.' }}",
+          "stream": false,
+          "options": {}
+        },
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "responseFormat": "json"
+          }
+        }
+      }
+    },
+    {
+      "id": "save-prompts",
+      "name": "💾 Save Prompts to File",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "parameters": {
+        "command": "powershell",
+        "arguments": [
+          "-Command",
+          "={{ $json.promptsFile + ' | Set-Content -Path \"' + $json.promptsFile + '\" -Value $json.response' }}"
+        ],
+        "executeInCommand": true,
+        "cwd": "C:\\Users\\khali\\kids-video-agent"
+      }
+    },
+    {
+      "id": "open-browser",
+      "name": "🌐 Open Bing Image Creator",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "parameters": {
+        "command": "powershell",
+        "arguments": [
+          "-Command",
+          "Start-Process 'https://www.bing.com/create'"
+        ],
+        "executeInCommand": true
+      }
+    },
+    {
+      "id": "wait-for-images",
+      "name": "⏳ Wait (Create Images in Bing)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "parameters": {
+        "resume": "webhook",
+        "options": {
+          "webhookSuffix": "images-ready",
+          "message": "Generate 5 images in Bing Image Creator and save them to input_images/ folder.\n\nFile names: scene_01_cow.jpeg through scene_05_all.jpeg\n\nClick 'Resume' when done."
+        }
+      }
+    },
+    {
+      "id": "run-pipeline",
+      "name": "🎬 Run Video Pipeline",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1560, 300],
+      "parameters": {
+        "command": "python",
+        "arguments": [
+          "C:\\Users\\khali\\kids-video-agent\\make_video.py",
+          "--topic",
+          "={{ $json.topic }}",
+          "--assemble"
+        ],
+        "executeInCommand": true,
+        "cwd": "C:\\Users\\khali\\kids-video-agent"
+      }
+    },
+    {
+      "id": "send-email",
+      "name": "📧 Email Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_EMAIL }}",
+        "toEmail": "={{ $env.NOTIFY_EMAIL }}",
+        "subject": "='✅ Video Complete: ' + $json.topic",
+        "text": "='Your video is ready!\n\nTopic: ' + $json.topic + '\nLocation: C:\\Users\\khali\\Downloads\\' + $json.topic.replace(' ', '_') + '.mp4\n\nUpload to YouTube? Go to youtube.com'",
+        "options": {
+          "emailType": "text"
+        }
+      }
+    },
+    {
+      "id": "upload-youtube",
+      "name": "📤 Upload to YouTube",
+      "type": "n8n-nodes-base.youtube",
+      "typeVersion": 1,
+      "position": [2000, 300],
+      "parameters": {
+        "operation": "upload",
+        "videoFile": "={{ 'C:\\\\Users\\\\khali\\\\Downloads\\\\' + $json.topic.replace(' ', '_') + '.mp4' }}",
+        "title": "={{ $json.topic + ' - Fun Kids Video!' }}",
+        "description": "={{ 'A fun ' + $json.topic + ' video for kids! Learn and play with us.' }}",
+        "privacyStatus": "public",
+        "categoryId": "24",
+        "tags": "={{ ['kids', $json.topic, 'educational', 'fun', 'animals', 'learning'] }}"
+      }
+    }
+  ],
+  "connections": {
+    "manual-trigger": {
+      "main": [[ { "node": "topic-input", "type": "main", "index": 0 } ]]
+    },
+    "topic-input": {
+      "main": [[ { "node": "generate-prompts", "type": "main", "index": 0 } ]]
+    },
+    "generate-prompts": {
+      "main": [[ { "node": "save-prompts", "type": "main", "index": 0 } ]]
+    },
+    "save-prompts": {
+      "main": [[ { "node": "open-browser", "type": "main", "index": 0 } ]]
+    },
+    "open-browser": {
+      "main": [[ { "node": "wait-for-images", "type": "main", "index": 0 } ]]
+    },
+    "wait-for-images": {
+      "main": [[ { "node": "run-pipeline", "type": "main", "index": 0 } ]]
+    },
+    "run-pipeline": {
+      "main": [[ { "node": "send-email", "type": "main", "index": 0 } ]]
+    },
+    "send-email": {
+      "main": [[ { "node": "upload-youtube", "type": "main", "index": 0 } ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "active": false
+}

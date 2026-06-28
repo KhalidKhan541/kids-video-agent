@@ -1,0 +1,183 @@
+name: Create Kids Video
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Video topic (e.g., "learn colors", "animal sounds")'
+        required: true
+        type: string
+      language:
+        description: 'Language code'
+        required: false
+        default: 'en'
+        type: choice
+        options:
+          - 'en'
+          - 'hi'
+          - 'ur'
+      upload_to_youtube:
+        description: 'Upload to YouTube after generation'
+        required: false
+        default: false
+        type: boolean
+      num_scenes:
+        description: 'Number of scenes'
+        required: false
+        default: '12'
+        type: string
+
+env:
+  PYTHON_VERSION: '3.11'
+  PIP_CACHE_DIR: ~/.cache/pip
+
+jobs:
+  generate-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+          pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
+
+      - name: Download Piper TTS voice models
+        run: |
+          PIPER_DIR="${{ runner.temp }}/piper-voices"
+          mkdir -p "$PIPER_DIR"
+          VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          VOICE_JSON_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+          echo "Downloading Piper voice model..."
+          curl -L -o "$PIPER_DIR/en_US-lessac-medium.onnx" "$VOICE_URL" || true
+          curl -L -o "$PIPER_DIR/en_US-lessac-medium.onnx.json" "$VOICE_JSON_URL" || true
+          echo "PIPER_VOICES_DIR=$PIPER_DIR" >> $GITHUB_ENV
+
+      - name: Determine inputs
+        id: inputs
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "topic=${{ github.event.inputs.topic }}" >> $GITHUB_OUTPUT
+            echo "language=${{ github.event.inputs.language }}" >> $GITHUB_OUTPUT
+            echo "upload=${{ github.event.inputs.upload_to_youtube }}" >> $GITHUB_OUTPUT
+            echo "scenes=${{ github.event.inputs.num_scenes }}" >> $GITHUB_OUTPUT
+          else
+            TOPICS=("learn colors" "animal sounds" "counting numbers" "shapes" "the solar system" "good manners" "parts of the body" "fruits and vegetables")
+            IDX=$((RANDOM % ${#TOPICS[@]}))
+            echo "topic=${TOPICS[$IDX]}" >> $GITHUB_OUTPUT
+            echo "language=en" >> $GITHUB_OUTPUT
+            echo "upload=false" >> $GITHUB_OUTPUT
+            echo "scenes=12" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate video
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          SMTP_EMAIL: ${{ secrets.SMTP_EMAIL }}
+          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+        run: |
+          python run_pipeline.py \
+            --topic "${{ steps.inputs.outputs.topic }}" \
+            --lang "${{ steps.inputs.outputs.language }}" \
+            --scenes "${{ steps.inputs.outputs.scenes }}" \
+            --output ./output
+
+      - name: Verify output
+        id: verify
+        run: |
+          VIDEO_COUNT=$(find ./output -name "*.mp4" 2>/dev/null | wc -l)
+          if [ "$VIDEO_COUNT" -eq 0 ]; then
+            echo "error=No video files found" >> $GITHUB_OUTPUT
+            echo "::error::No video files generated"
+            exit 1
+          fi
+          echo "video_count=$VIDEO_COUNT" >> $GITHUB_OUTPUT
+          echo "video_path=$(find ./output -name "*.mp4" | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Upload video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kids-video-${{ steps.inputs.outputs.topic }}-${{ github.run_number }}
+          path: output/**/*.mp4
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload to YouTube
+        if: steps.inputs.outputs.upload == 'true'
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$YOUTUBE_CLIENT_ID" ] || [ -z "$YOUTUBE_CLIENT_SECRET" ] || [ -z "$YOUTUBE_REFRESH_TOKEN" ]; then
+            echo "::warning::YouTube upload skipped - missing credentials"
+            exit 0
+          fi
+          python - <<'PYEOF'
+          import os, json, glob
+          from google.oauth2.credentials import Credentials
+          from google.auth.transport.requests import Request
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+          
+          creds = Credentials(token=None, refresh_token=os.environ["YOUTUBE_REFRESH_TOKEN"],
+              token_uri="https://oauth2.googleapis.com/token",
+              client_id=os.environ["YOUTUBE_CLIENT_ID"], client_secret=os.environ["YOUTUBE_CLIENT_SECRET"])
+          creds.refresh(Request())
+          youtube = build("youtube", "v3", credentials=creds)
+          
+          video_files = glob.glob("output/**/*.mp4", recursive=True)
+          if not video_files: print("No video files found"); exit(1)
+          
+          topic = os.environ.get("TOPIC", "Kids Video")
+          body = {"snippet": {"title": f"{topic} | Kids Learning",
+              "description": f"Enjoy learning about {topic}!\n\n#kids #learning #education",
+              "tags": ["kids", "learning", "education", "children"], "categoryId": "22"},
+              "status": {"privacyStatus": "unlisted", "selfDeclaredMadeForKids": True}}
+          
+          media = MediaFileUpload(video_files[0], mimetype="video/mp4", resumable=True)
+          request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+          response = None
+          while response is None:
+              status, response = request.next_chunk()
+          print(f"Uploaded: https://youtu.be/{response['id']}")
+          PYEOF
+        env:
+          TOPIC: ${{ steps.inputs.outputs.topic }}
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## Video Generation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Topic** | ${{ steps.inputs.outputs.topic }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Language** | ${{ steps.inputs.outputs.language }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Scenes** | ${{ steps.inputs.outputs.scenes }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **YouTube Upload** | ${{ steps.inputs.outputs.upload }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Run ID** | ${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY

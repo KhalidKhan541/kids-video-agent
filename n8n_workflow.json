@@ -1,0 +1,68 @@
+{
+  "name": "Kids Video Pipeline",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "📅 Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "hoursInterval": 24 }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2",
+      "name": "📜 Generate Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:11434/api/generate",
+        "authentication": "none",
+        "sendBody": true,
+        "jsonBody": {
+          "model": "qwen2.5:1.5b",
+          "promly": "={{ 'Generate a kids video script about ' + $json.topic + ' with 5 scenes as JSON' }}",
+          "stream": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3",
+      "name": "▶️ Run Python Pipeline",
+      "type": "n8n-nodes-base.executeCommand",
+      "parameters": {
+        "command": "python",
+        "arguments": [
+          "C:\\Users\\khali\\kids-video-agent\\make_video.py",
+          "--topic",
+          "={{ $json.topic }}",
+          "--assemble",
+          "--images-dir",
+          "C:\\Users\\khali\\kids-video-agent\\input_images"
+        ],
+        "executeInCommand": true,
+        "cwd": "C:\\Users\\khali\\kids-video-agent"
+      }
+    },
+    {
+      "id": "4",
+      "name": "📧 Email Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "parameters": {
+        "fromEmail": "your-email@gmail.com",
+        "toEmail": "your-email@gmail.com",
+        "subject": "✅ Video Generated - Animal Dance Party",
+        "text": "={{ 'Video created! Check: C:\\\\Users\\\\khali\\\\Downloads\\\\animal_dance_party.mp4' }}"
+      }
+    }
+  ],
+  "connections": {
+    "1": { "main": [[ { "node": "2", "type": "main", "index": 0 } ]] },
+    "2": { "main": [[ { "node": "3", "type": "main", "index": 0 } ]] },
+    "3": { "main": [[ { "node": "4", "type": "main", "index": 0 } ]] }
+  }
+}

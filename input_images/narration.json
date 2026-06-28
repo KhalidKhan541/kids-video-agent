@@ -1,0 +1,35 @@
+{
+  "topic": "animal dance party",
+  "scenes": [
+    {
+      "scene_number": 1,
+      "image_filename": "scene_01.jpg",
+      "narration": "Moo moo! Look at the cute pink cow dancing in the meadow! She loves to dance all day long! Can you dance like a cow?",
+      "duration": 8
+    },
+    {
+      "scene_number": 2,
+      "image_filename": "scene_02.jpg",
+      "narration": "Waddle waddle! The happy penguin is dancing on the ice with his top hat! He slides and spins so fast! Let's dance like a penguin!",
+      "duration": 8
+    },
+    {
+      "scene_number": 3,
+      "image_filename": "scene_03.jpg",
+      "narration": "Hop hop! The fluffy white bunny is hopping and twirling in the magical garden! She shakes her maraca and hops really high! Can you hop like a bunny?",
+      "duration": 8
+    },
+    {
+      "scene_number": 4,
+      "image_filename": "scene_04.jpg",
+      "narration": "Roar! The friendly lion cub is dancing on the savanna with his cool mane flowing! He's the king of the dance floor! Let's roar and dance!",
+      "duration": 8
+    },
+    {
+      "scene_number": 5,
+      "image_filename": "scene_05.jpg",
+      "narration": "All the animals are dancing together! Cow, penguin, bunny, and lion! Everybody dance and have fun under the colorful balloons! Yay!",
+      "duration": 10
+    }
+  ]
+}

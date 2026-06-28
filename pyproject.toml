@@ -1,0 +1,25 @@
+[project]
+name = "kids-video-agent"
+version = "0.1.0"
+description = "AI-powered video creation agent for kids' YouTube channels using LangGraph + Blender"
+requires-python = ">=3.11"
+authors = [{ name = "Kids Video Agent" }]
+dependencies = [
+    "langgraph>=0.4.0",
+    "google-api-python-client>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+    "moviepy>=2.0.0",
+    "Pillow>=10.0.0",
+    "gTTS>=2.3.0",
+    "pydub>=0.25.0",
+    "rich>=13.0.0",
+    "click>=8.0.0",
+    "python-dotenv>=1.0.0",
+    "streamlit>=1.38.0",
+]
+
+[project.scripts]
+kids-video = "src.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]

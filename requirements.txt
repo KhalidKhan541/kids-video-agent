@@ -1,0 +1,23 @@
+# Kids Video Agent - Dependencies (All Free)
+# =============================================
+
+# AI & API
+groq>=0.11.0                 # Groq API for fast LLM inference
+requests>=2.31.0             # HTTP requests for APIs
+
+# TTS & Audio
+piper-tts>=1.2.0             # Local neural TTS engine
+pydub>=0.25.0                # Audio processing and manipulation
+
+# Image & Video
+Pillow>=10.0.0               # Image processing and manipulation
+imageio-ffmpeg>=0.5.0        # FFmpeg wrapper for video generation
+
+# CLI & Utilities
+rich>=13.0.0                 # Rich terminal output and formatting
+click>=8.0.0                 # CLI framework for commands
+python-dotenv>=1.0.0         # Environment variable management
+
+# LangGraph (optional, for graph pipeline)
+langgraph>=0.2.0             # Agent orchestration
+typing-extensions>=4.0.0     # TypedDict support
