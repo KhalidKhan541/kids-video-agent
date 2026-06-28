@@ -132,6 +132,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          TOPIC: ${{ steps.inputs.outputs.topic }}
         run: |
           if [ -z "$YOUTUBE_CLIENT_ID" ] || [ -z "$YOUTUBE_CLIENT_SECRET" ] || [ -z "$YOUTUBE_REFRESH_TOKEN" ]; then
             echo "::warning::YouTube upload skipped - missing credentials"
@@ -166,8 +167,6 @@ jobs:
               status, response = request.next_chunk()
           print(f"Uploaded: https://youtu.be/{response['id']}")
           PYEOF
-        env:
-          TOPIC: ${{ steps.inputs.outputs.topic }}
 
       - name: Generate summary
         if: always()
