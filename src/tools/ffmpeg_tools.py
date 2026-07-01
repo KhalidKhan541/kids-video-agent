@@ -297,42 +297,65 @@ def crossfade_clips(
             prev_label = next_label
         vf = ";".join(parts)
 
-    # Audio crossfade: use acrossfade for pairs, or amerge
-    af_parts = []
-    n_audio = len(clips)
-    if n_audio == 2:
-        af = (
-            f"[0:a][1:a]acrossfade=d={fade_duration}:c1=tri:c2=tri[aout]"
-        )
-    else:
-        # Chain acrossfade filters
-        a_parts = []
-        prev_label = "0:a"
-        for i in range(1, n_audio):
-            next_label = f"a{i}" if i < n_audio - 1 else "aout"
-            a_parts.append(
-                f"[{prev_label}][{i}:a]acrossfade=d={fade_duration}"
-                f":c1=tri:c2=tri[{next_label}]"
+    # Check if clips have audio streams
+    has_audio = False
+    try:
+        probe_info = _probe(clips[0])
+        has_audio = any(s.get("codec_type") == "audio" for s in probe_info.get("streams", []))
+    except Exception:
+        pass
+
+    if has_audio:
+        # Audio crossfade: use acrossfade for pairs, or amerge
+        n_audio = len(clips)
+        if n_audio == 2:
+            af = (
+                f"[0:a][1:a]acrossfade=d={fade_duration}:c1=tri:c2=tri[aout]"
             )
-            prev_label = next_label
-        af = ";".join(a_parts)
+        else:
+            # Chain acrossfade filters
+            a_parts = []
+            prev_label = "0:a"
+            for i in range(1, n_audio):
+                next_label = f"a{i}" if i < n_audio - 1 else "aout"
+                a_parts.append(
+                    f"[{prev_label}][{i}:a]acrossfade=d={fade_duration}"
+                    f":c1=tri:c2=tri[{next_label}]"
+                )
+                prev_label = next_label
+            af = ";".join(a_parts)
 
-    filter_complex = vf + ";" + af
+        filter_complex = vf + ";" + af
 
-    cmd = [
-        FFMPEG_BIN,
-        "-y",
-        *inputs,
-        "-filter_complex", filter_complex,
-        "-map", "[vout]",
-        "-map", "[aout]",
-        "-c:v", "libx264",
-        "-preset", "medium",
-        "-crf", "23",
-        "-c:a", "aac",
-        "-b:a", "192k",
-        str(output_path),
-    ]
+        cmd = [
+            FFMPEG_BIN,
+            "-y",
+            *inputs,
+            "-filter_complex", filter_complex,
+            "-map", "[vout]",
+            "-map", "[aout]",
+            "-c:v", "libx264",
+            "-preset", "medium",
+            "-crf", "23",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            str(output_path),
+        ]
+    else:
+        # Video-only clips (no audio streams) - skip audio crossfade
+        filter_complex = vf
+
+        cmd = [
+            FFMPEG_BIN,
+            "-y",
+            *inputs,
+            "-filter_complex", filter_complex,
+            "-map", "[vout]",
+            "-c:v", "libx264",
+            "-preset", "medium",
+            "-crf", "23",
+            str(output_path),
+        ]
 
     try:
         _run(cmd, f"crossfade_clips({len(clips)} clips)")
