@@ -1,4 +1,7 @@
-"""Piper TTS tools for high-quality local text-to-speech generation."""
+"""Piper TTS tools for high-quality local text-to-speech generation.
+
+Falls back to gTTS (Google Text-to-Speech) when Piper is unavailable.
+"""
 
 import subprocess
 import sys
@@ -7,6 +10,42 @@ import json
 import shutil
 from pathlib import Path
 from typing import List, Optional
+
+PIPER_AVAILABLE = None  # Cached check result
+
+
+def _check_piper_available() -> bool:
+    """Check if piper-tts is available."""
+    global PIPER_AVAILABLE
+    if PIPER_AVAILABLE is not None:
+        return PIPER_AVAILABLE
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "piper_tts", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        PIPER_AVAILABLE = result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        PIPER_AVAILABLE = False
+    return PIPER_AVAILABLE
+
+
+def _generate_gtts_fallback(text: str, output_path: str, lang: str = "en") -> str:
+    """Generate audio using gTTS as fallback when Piper is unavailable."""
+    from gtts import gTTS
+    import io
+    from pydub import AudioSegment
+
+    tts = gTTS(text=text, lang=lang, slow=False)
+    mp3_buffer = io.BytesIO()
+    tts.write_to_fp(mp3_buffer)
+    mp3_buffer.seek(0)
+
+    audio = AudioSegment.from_mp3(mp3_buffer)
+    audio.export(output_path, format="wav")
+    return output_path
 
 PIPER_DIR = Path.home() / ".cache" / "piper"
 MODELS_DIR = PIPER_DIR / "models"
@@ -86,8 +125,11 @@ def generate_narration(
     length_scale: float = 1.0,
     noise_scale: float = 0.667,
     noise_w: float = 0.8,
+    lang: str = "en",
 ) -> str:
     """Generate WAV audio narration from text.
+
+    Tries Piper TTS first, falls back to gTTS if Piper is unavailable.
 
     Args:
         text: The text to synthesize.
@@ -96,6 +138,7 @@ def generate_narration(
         length_scale: Speech rate (1.0 = normal, >1 = slower, <1 = faster).
         noise_scale: Noise for phoneme generation.
         noise_w: Phoneme noise width.
+        lang: Language code for gTTS fallback (e.g., 'en', 'hi', 'ur').
 
     Returns:
         Path to the generated WAV file.
@@ -103,42 +146,50 @@ def generate_narration(
     if not text.strip():
         raise ValueError("Text cannot be empty")
 
-    python_path = ensure_piper_installed()
-    model_path = download_voice_model(voice)
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        python_path,
-        "-m",
-        "piper_tts",
-        "--model",
-        str(model_path),
-        "--output_file",
-        str(output),
-        "--length_scale",
-        str(length_scale),
-        "--noise_scale",
-        str(noise_scale),
-        "--noise_w",
-        str(noise_w),
-    ]
+    # Try Piper TTS first
+    if _check_piper_available():
+        try:
+            python_path = ensure_piper_installed()
+            model_path = download_voice_model(voice)
 
-    process = subprocess.run(
-        cmd,
-        input=text,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+            cmd = [
+                python_path,
+                "-m",
+                "piper_tts",
+                "--model",
+                str(model_path),
+                "--output_file",
+                str(output),
+                "--length_scale",
+                str(length_scale),
+                "--noise_scale",
+                str(noise_scale),
+                "--noise_w",
+                str(noise_w),
+            ]
 
-    if process.returncode != 0:
-        raise RuntimeError(f"Piper TTS failed: {process.stderr}")
+            process = subprocess.run(
+                cmd,
+                input=text,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
 
-    if not output.exists():
-        raise FileNotFoundError(f"Audio file was not created: {output}")
+            if process.returncode == 0 and output.exists():
+                return str(output)
+            else:
+                print(f"[Piper TTS] Failed (exit code {process.returncode}), falling back to gTTS")
+        except Exception as e:
+            print(f"[Piper TTS] Error: {e}, falling back to gTTS")
+    else:
+        print("[Piper TTS] Not available, using gTTS fallback")
 
-    return str(output)
+    # Fallback to gTTS
+    return _generate_gtts_fallback(text, str(output), lang=lang)
 
 
 def generate_narration_segments(
@@ -146,6 +197,7 @@ def generate_narration_segments(
     output_dir: str,
     voice: str = "en_US-amy-medium",
     sample_rate: int = 22050,
+    lang: str = "en",
 ) -> List[str]:
     """Generate narration for multiple segments/scenes.
 
@@ -154,6 +206,7 @@ def generate_narration_segments(
         output_dir: Directory to save generated audio files.
         voice: Voice model name.
         sample_rate: Output sample rate (default 22050).
+        lang: Language code for gTTS fallback (e.g., 'en', 'hi', 'ur').
 
     Returns:
         List of paths to generated WAV files.
@@ -181,6 +234,7 @@ def generate_narration_segments(
                 text=text,
                 output_path=str(file_path),
                 voice=voice,
+                lang=lang,
             )
             generated_files.append(result)
             print(f"Generated: {filename}")

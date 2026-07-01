@@ -47,7 +47,7 @@ class Settings:
 
     # Email notification settings
     SMTP_EMAIL: str = os.getenv("SMTP_EMAIL", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_APP_PASSWORD", os.getenv("SMTP_PASSWORD", ""))
     NOTIFY_EMAIL: str = os.getenv("NOTIFY_EMAIL", "")
 
     # Output directories

@@ -26,7 +26,7 @@ def _get_config():
     """Read SMTP configuration from environment variables."""
     return {
         "email": os.environ.get("SMTP_EMAIL", ""),
-        "password": os.environ.get("SMTP_PASSWORD", ""),
+        "password": os.environ.get("SMTP_APP_PASSWORD", os.environ.get("SMTP_PASSWORD", "")),
         "notify": os.environ.get("NOTIFY_EMAIL", ""),
     }
 

@@ -400,7 +400,7 @@ def compose_final(
 
     Args:
         images: List of image file paths (one per scene).
-        audio: Path to narration audio file.
+        audio: Path to narration audio file (can be empty string for video-only).
         music: Optional path to background music file.
         output_path: Path to final output video.
         narration_volume: Narration volume multiplier.
@@ -420,8 +420,15 @@ def compose_final(
         clips: List[str] = []
 
         # Determine per-image duration
-        if narration_duration is None:
+        has_audio = audio and os.path.exists(audio) and os.path.getsize(audio) > 0
+        
+        if narration_duration is not None:
+            pass  # Use provided duration
+        elif has_audio:
             narration_duration = _get_duration(audio)
+        else:
+            # Default duration per image if no audio
+            narration_duration = len(images) * 5  # 5 seconds per image
 
         per_image_duration = narration_duration / len(images)
 
@@ -446,6 +453,22 @@ def compose_final(
         if rc != 0:
             print("[compose_final] crossfade_clips failed")
             return rc
+
+        if not has_audio:
+            # No audio, just copy the video
+            cmd = [
+                FFMPEG_BIN, "-y",
+                "-i", str(concatenated),
+                "-c", "copy",
+                str(output_path),
+            ]
+            try:
+                _run(cmd, "compose_final(copy video-only)")
+                print("[compose_final] Warning: No audio provided, video created without sound")
+                return 0
+            except FFmpegError as e:
+                print(f"[compose_final] copy failed: {e}\n{e.stderr}")
+                return e.returncode
 
         # Step 3: Add narration audio
         with_narration = os.path.join(tmpdir, "with_narration.mp4")

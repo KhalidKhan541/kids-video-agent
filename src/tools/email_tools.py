@@ -1,13 +1,62 @@
-"""Email notification tool - sends video completion alerts via Google SMTP."""
+"""Email notification tool - sends video completion alerts via Google SMTP.
+
+Includes retry logic and proper error handling.
+"""
 
 import os
 import smtplib
+import logging
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 2
+
+
+def _send_email_with_retry(
+    smtp_server: str,
+    smtp_port: int,
+    smtp_email: str,
+    smtp_password: str,
+    notify_email: str,
+    msg: MIMEMultipart,
+    max_retries: int = MAX_RETRIES,
+) -> dict:
+    """Send email with retry logic for transient failures."""
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as server:
+                server.starttls()
+                server.login(smtp_email, smtp_password)
+                server.sendmail(smtp_email, notify_email, msg.as_string())
+            logger.info("Email sent successfully on attempt %d", attempt + 1)
+            return {"success": True, "sent_to": notify_email}
+        except smtplib.SMTPAuthenticationError as e:
+            # Authentication errors should not be retried
+            logger.error("SMTP authentication failed: %s", e)
+            return {"success": False, "error": f"Authentication failed: {e}"}
+        except smtplib.SMTPException as e:
+            last_error = e
+            logger.warning("SMTP error on attempt %d: %s", attempt + 1, e)
+            if attempt < max_retries - 1:
+                time.sleep(RETRY_DELAY_SECONDS * (attempt + 1))
+        except Exception as e:
+            last_error = e
+            logger.warning("Unexpected error on attempt %d: %s", attempt + 1, e)
+            if attempt < max_retries - 1:
+                time.sleep(RETRY_DELAY_SECONDS * (attempt + 1))
+    
+    return {"success": False, "error": f"Failed after {max_retries} attempts: {last_error}"}
 
 
 def send_video_notification(
@@ -18,13 +67,15 @@ def send_video_notification(
     tags: list[str] | None = None,
     pipeline_report: dict | None = None,
 ) -> dict:
+    """Send video completion notification email with video attached."""
     smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_email = os.getenv("SMTP_EMAIL", "")
-    smtp_password = os.getenv("SMTP_APP_PASSWORD", "").replace(" ", "")
+    smtp_password = os.getenv("SMTP_APP_PASSWORD", os.getenv("SMTP_PASSWORD", "")).replace(" ", "")
     notify_email = os.getenv("NOTIFY_EMAIL", smtp_email)
 
     if not smtp_email or not smtp_password:
+        logger.error("SMTP credentials not configured. Set SMTP_EMAIL and SMTP_APP_PASSWORD.")
         return {"success": False, "error": "SMTP credentials not configured"}
 
     msg = MIMEMultipart()
@@ -66,19 +117,42 @@ def send_video_notification(
     msg.attach(MIMEText(html, "html"))
 
     video_file = Path(video_path)
-    if video_file.exists():
-        with open(video_file, "rb") as f:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(f.read())
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f"attachment; filename={video_file.name}")
-            msg.attach(part)
+    if video_path and video_file.exists():
+        try:
+            with open(video_file, "rb") as f:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(f.read())
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", f"attachment; filename={video_file.name}")
+                msg.attach(part)
+            logger.info("Attached video file: %s", video_file.name)
+        except Exception as e:
+            logger.warning("Failed to attach video file: %s", e)
+    else:
+        logger.warning("Video file not found or path empty: %s", video_path)
+
+    return _send_email_with_retry(smtp_server, smtp_port, smtp_email, smtp_password, notify_email, msg)
+
+
+def test_email_connection() -> dict:
+    """Test SMTP connection and authentication."""
+    smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_email = os.getenv("SMTP_EMAIL", "")
+    smtp_password = os.getenv("SMTP_APP_PASSWORD", os.getenv("SMTP_PASSWORD", "")).replace(" ", "")
+
+    if not smtp_email or not smtp_password:
+        return {"success": False, "error": "SMTP credentials not configured"}
 
     try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as server:
             server.starttls()
             server.login(smtp_email, smtp_password)
-            server.sendmail(smtp_email, notify_email, msg.as_string())
-        return {"success": True, "sent_to": notify_email}
+        logger.info("SMTP connection test successful for %s", smtp_email)
+        return {"success": True, "message": "SMTP connection successful"}
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error("SMTP authentication failed: %s", e)
+        return {"success": False, "error": f"Authentication failed: {e}"}
     except Exception as e:
+        logger.error("SMTP connection test failed: %s", e)
         return {"success": False, "error": str(e)}

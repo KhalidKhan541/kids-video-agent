@@ -113,7 +113,7 @@ def run_pipeline(
     try:
         from src.tools.piper_tts_tools import generate_narration_segments
         segments = [{"text": s.get("narration", s.get("narration_text", "")), "filename": f"scene_{s['scene_id']:03d}.wav"} for s in scenes]
-        audio_files = generate_narration_segments(segments, output_dir=str(audio_dir))
+        audio_files = generate_narration_segments(segments, output_dir=str(audio_dir), lang=lang)
         results["agents"]["VoiceNarrator"] = {"count": len(audio_files), "files": audio_files}
         _print(f"  [OK] {len(audio_files)} narrations in {time.time() - t3:.1f}s")
     except Exception as e:
