@@ -36,15 +36,35 @@ def _generate_gtts_fallback(text: str, output_path: str, lang: str = "en") -> st
     """Generate audio using gTTS as fallback when Piper is unavailable."""
     from gtts import gTTS
     import io
-    from pydub import AudioSegment
+    import tempfile
+    from pathlib import Path
 
     tts = gTTS(text=text, lang=lang, slow=False)
     mp3_buffer = io.BytesIO()
     tts.write_to_fp(mp3_buffer)
     mp3_buffer.seek(0)
 
-    audio = AudioSegment.from_mp3(mp3_buffer)
-    audio.export(output_path, format="wav")
+    # Save MP3 to temp file
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_mp3:
+        tmp_mp3.write(mp3_buffer.read())
+        tmp_mp3_path = tmp_mp3.name
+
+    try:
+        # Use FFmpeg to convert MP3 to WAV
+        from src.tools.ffmpeg_tools import FFMPEG_BIN, _run
+        cmd = [
+            FFMPEG_BIN,
+            "-y",
+            "-i", tmp_mp3_path,
+            "-ar", "22050",
+            "-ac", "1",
+            output_path,
+        ]
+        _run(cmd, "gTTS to WAV conversion")
+    finally:
+        # Clean up temp file
+        Path(tmp_mp3_path).unlink(missing_ok=True)
+
     return output_path
 
 PIPER_DIR = Path.home() / ".cache" / "piper"

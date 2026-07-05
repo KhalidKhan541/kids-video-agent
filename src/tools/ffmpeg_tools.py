@@ -11,8 +11,50 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 
-FFMPEG_BIN = os.environ.get("FFMPEG_BIN", "ffmpeg")
-FFPROBE_BIN = os.environ.get("FFPROBE_BIN", "ffprobe")
+def _find_ffmpeg() -> str:
+    """Find FFmpeg binary, preferring imageio-ffmpeg bundled version."""
+    # Check environment variable first
+    ffmpeg_bin = os.environ.get("FFMPEG_BIN")
+    if ffmpeg_bin:
+        return ffmpeg_bin
+    
+    # Try to use imageio-ffmpeg bundled version
+    try:
+        import imageio_ffmpeg
+        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        if os.path.exists(ffmpeg_path):
+            # Use forward slashes to avoid issues on Windows
+            return ffmpeg_path.replace("\\", "/")
+    except ImportError:
+        pass
+    
+    # Fall back to system ffmpeg
+    return "ffmpeg"
+
+
+def _find_ffprobe() -> str:
+    """Find FFprobe binary."""
+    ffprobe_bin = os.environ.get("FFPROBE_BIN")
+    if ffprobe_bin:
+        return ffprobe_bin
+    
+    # Try to find ffprobe near ffmpeg
+    try:
+        import imageio_ffmpeg
+        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        ffmpeg_dir = os.path.dirname(ffmpeg_path)
+        ffprobe_path = os.path.join(ffmpeg_dir, "ffprobe-win-x86_64-v7.1.exe")
+        if os.path.exists(ffprobe_path):
+            return ffprobe_path.replace("\\", "/")
+    except ImportError:
+        pass
+    
+    # Fall back to system ffprobe
+    return "ffprobe"
+
+
+FFMPEG_BIN = _find_ffmpeg()
+FFPROBE_BIN = _find_ffprobe()
 
 
 class FFmpegError(Exception):
@@ -27,6 +69,8 @@ class FFmpegError(Exception):
 def _run(cmd: List[str], description: str = "ffmpeg") -> subprocess.CompletedProcess:
     """Run a subprocess command and raise FFmpegError on failure."""
     try:
+        # Debug: print command
+        print(f"[ffmpeg_tools] Running: {cmd[0]}")
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -40,7 +84,8 @@ def _run(cmd: List[str], description: str = "ffmpeg") -> subprocess.CompletedPro
                 stderr=result.stderr[-2000:] if result.stderr else "",
             )
         return result
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        print(f"[ffmpeg_tools] FileNotFoundError: {e}")
         raise FFmpegError(
             f"{FFMPEG_BIN} not found. Ensure FFmpeg is installed and on PATH.",
             returncode=-1,
@@ -50,18 +95,50 @@ def _run(cmd: List[str], description: str = "ffmpeg") -> subprocess.CompletedPro
 
 
 def _probe(path: str) -> dict:
-    """Probe a media file and return format/stream info."""
-    cmd = [
-        FFPROBE_BIN,
-        "-v", "quiet",
-        "-print_format", "json",
-        "-show_format",
-        "-show_streams",
-        str(path),
-    ]
-    import json
-    result = _run(cmd, f"ffprobe {path}")
-    return json.loads(result.stdout)
+    """Probe a media file and return format/stream info.
+    
+    Uses ffmpeg instead of ffprobe for compatibility.
+    """
+    # Try to use ffprobe first
+    try:
+        cmd = [
+            FFPROBE_BIN,
+            "-v", "quiet",
+            "-print_format", "json",
+            "-show_format",
+            "-show_streams",
+            str(path),
+        ]
+        import json
+        result = _run(cmd, f"ffprobe {path}")
+        return json.loads(result.stdout)
+    except FFmpegError:
+        # Fallback: use ffmpeg to get duration
+        import re
+        cmd = [
+            FFMPEG_BIN,
+            "-hide_banner",
+            "-i", str(path),
+        ]
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            # Parse duration from ffmpeg output
+            duration_match = re.search(r"Duration:\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})", result.stderr)
+            if duration_match:
+                hours = int(duration_match.group(1))
+                minutes = int(duration_match.group(2))
+                seconds = int(duration_match.group(3))
+                centiseconds = int(duration_match.group(4))
+                total_seconds = hours * 3600 + minutes * 60 + seconds + centiseconds / 100.0
+                return {"format": {"duration": str(total_seconds)}}
+        except Exception:
+            pass
+        return {"format": {"duration": "0"}}
 
 
 def _get_duration(path: str) -> float:
