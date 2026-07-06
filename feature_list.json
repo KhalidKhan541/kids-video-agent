@@ -1,0 +1,79 @@
+{
+  "project": "kids-video-agent",
+  "version": "1.0.0",
+  "current_feature": null,
+  "features": [
+    {
+      "id": "F001",
+      "name": "Core Pipeline",
+      "status": "completed",
+      "description": "Basic video generation pipeline with all tools",
+      "dependencies": [],
+      "done_criteria": [
+        "All tools import correctly",
+        "Pipeline runs end-to-end",
+        "Video file generated"
+      ],
+      "evidence": "Pipeline tested locally"
+    },
+    {
+      "id": "F002",
+      "name": "Email Notifications",
+      "status": "completed",
+      "description": "Send email with video after generation",
+      "dependencies": ["F001"],
+      "done_criteria": [
+        "Email sent after video generation",
+        "Email contains video file",
+        "Email contains metadata"
+      ],
+      "evidence": "email_tools.py created"
+    },
+    {
+      "id": "F003",
+      "name": "GitHub Actions Automation",
+      "status": "completed",
+      "description": "Automated video generation on schedule",
+      "dependencies": ["F001", "F002"],
+      "done_criteria": [
+        "Workflow runs on schedule",
+        "Workflow generates video",
+        "Workflow sends email"
+      ],
+      "evidence": "Workflow triggered, Run ID: 28325400444"
+    },
+    {
+      "id": "F004",
+      "name": "YouTube Upload",
+      "status": "blocked",
+      "description": "Auto-upload videos to YouTube",
+      "dependencies": ["F001"],
+      "done_criteria": [
+        "OAuth2 secrets configured",
+        "Video uploaded after generation",
+        "SEO metadata applied"
+      ],
+      "evidence": "Waiting for user to provide OAuth2 secrets"
+    },
+    {
+      "id": "F005",
+      "name": "Harness Engineering",
+      "status": "in_progress",
+      "description": "Apply harness patterns for reliability",
+      "dependencies": [],
+      "done_criteria": [
+        "AGENTS.md created",
+        "progress.md created",
+        "feature_list.json created",
+        "Verification commands work"
+      ],
+      "evidence": "Harness files being created"
+    }
+  ],
+  "scope_rules": {
+    "max_features_per_session": 1,
+    "require_verification": true,
+    "require_progress_update": true,
+    "require_tests": true
+  }
+}
