@@ -1,8 +1,6 @@
 name: Auto Generate Kids Videos
 
 on:
-  schedule:
-    - cron: '0 10 * * 1,3,5'  # Every Mon/Wed/Fri at 10:00 UTC
   workflow_dispatch:
     inputs:
       topic:

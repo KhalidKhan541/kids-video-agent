@@ -1,9 +1,6 @@
 name: Create Kids Video
 
 on:
-  schedule:
-    - cron: '0 8 * * *'
-    - cron: '0 16 * * *'
   workflow_dispatch:
     inputs:
       topic:
@@ -57,22 +54,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
-          pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
-          pip install gTTS pydub || true
-          pip install piper-tts || echo "piper-tts installation failed, will use gTTS fallback"
-
-      - name: Download Piper TTS voice models
-        run: |
-          PIPER_DIR="${{ runner.temp }}/piper-voices"
-          mkdir -p "$PIPER_DIR"
-          # Try to download Piper voice models (non-fatal if fails)
-          VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
-          VOICE_JSON_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
-          curl -L -o "$PIPER_DIR/en_US-lessac-medium.onnx" "$VOICE_URL" || echo "Failed to download Piper voice model"
-          curl -L -o "$PIPER_DIR/en_US-lessac-medium.onnx.json" "$VOICE_JSON_URL" || echo "Failed to download Piper voice config"
-          echo "PIPER_VOICES_DIR=$PIPER_DIR" >> $GITHUB_ENV
-          # Verify gTTS is available as fallback
-          python -c "from gtts import gTTS; print('gTTS fallback available')" || echo "gTTS not available"
 
       - name: Determine inputs
         id: inputs
@@ -89,20 +70,6 @@ jobs:
             echo "scenes=40" >> $GITHUB_OUTPUT
           fi
 
-      - name: Test email connection
-        env:
-          SMTP_EMAIL: ${{ secrets.SMTP_EMAIL }}
-          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
-          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
-        run: |
-          python -c "
-          from src.tools.email_tools import test_email_connection
-          result = test_email_connection()
-          print('Email test result:', result)
-          if not result.get('success'):
-              print('WARNING: Email test failed. Video will be generated but email may not be sent.')
-          "
-
       - name: Health Check
         run: |
           python harness/health_check.py quick || {
@@ -114,9 +81,6 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          SMTP_EMAIL: ${{ secrets.SMTP_EMAIL }}
-          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
-          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
         run: |
           python run_pipeline.py \
             --topic "${{ steps.inputs.outputs.topic }}" \
